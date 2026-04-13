@@ -21,8 +21,8 @@ general:
     # If you don't want your agent to expose A2A endpoints, remove the following block.
     a2a:
       server:
-        name: ORIX Energy Reporting Agent
-        description: ORIX環境エネルギー本部の経営レポーティングエージェント。財務データ、SFAパイプライン、社内文書、発電実績を統合的に分析し、経営層向けの構造化レポートを提供します。
+        name: Energy Reporting Agent
+        description: 環境エネルギー本部の経営レポーティングエージェント。財務データ、SFAパイプライン、社内文書、発電実績を統合的に分析し、経営層向けの構造化レポートを提供します。
       skills:
         - id: financial_analysis
           name: 財務分析
@@ -65,7 +65,7 @@ llms:
 workflow:
   _type: langgraph_agent
   llm_name: datarobot_llm
-  description: ORIX環境エネルギー経営レポーティングエージェント
+  description: 環境エネルギー経営レポーティングエージェント
   # tool_names:
   #   - remote_agent
 authentication:

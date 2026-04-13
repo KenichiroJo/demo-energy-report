@@ -1,4 +1,4 @@
-"""Dashboard API — serves mock data for the ORIX Energy Reporting Agent demo."""
+"""Dashboard API — serves mock data for the Energy Reporting Agent demo."""
 
 from __future__ import annotations
 
@@ -28,31 +28,31 @@ SEGMENTS = [
 async def get_kpis() -> dict[str, Any]:
     """Return aggregated KPIs across all segments (latest month)."""
     data = load_financial_data()
-    latest_month = max(r["month"] for r in data)
-    latest = [r for r in data if r["month"] == latest_month]
+    latest_month = max(r["年月"] for r in data)
+    latest = [r for r in data if r["年月"] == latest_month]
 
-    total_revenue = sum(r["revenue_million_yen"] for r in latest)
-    total_profit = sum(r["operating_profit_million_yen"] for r in latest)
-    total_capacity = sum(r["capacity_mw"] or 0 for r in latest)
-    total_generation = sum(r["generation_mwh"] or 0 for r in latest)
-    total_co2 = sum(r["co2_reduction_ton"] or 0 for r in latest)
+    total_revenue = sum(r["売上高_百万円"] for r in latest)
+    total_profit = sum(r["営業利益_百万円"] for r in latest)
+    total_capacity = sum(r["設備容量_MW"] or 0 for r in latest)
+    total_generation = sum(r["発電量_MWh"] or 0 for r in latest)
+    total_co2 = sum(r["CO2削減量_t"] or 0 for r in latest)
 
     sfa = load_sfa_data()
     pipeline_count = len(sfa)
-    pipeline_total = sum(d["amount_million_yen"] for d in sfa)
-    pipeline_expected = sum(d["expected_amount_million_yen"] for d in sfa)
+    pipeline_total = sum(d["案件金額_百万円"] for d in sfa)
+    pipeline_expected = sum(d["期待金額_百万円"] for d in sfa)
 
     return {
-        "month": latest_month,
-        "total_revenue_million_yen": total_revenue,
-        "total_operating_profit_million_yen": total_profit,
-        "total_capacity_mw": total_capacity,
-        "total_generation_mwh": total_generation,
-        "total_co2_reduction_ton": total_co2,
-        "pipeline_count": pipeline_count,
-        "pipeline_total_million_yen": pipeline_total,
-        "pipeline_expected_million_yen": pipeline_expected,
-        "segments": SEGMENTS,
+        "年月": latest_month,
+        "売上高合計_百万円": total_revenue,
+        "営業利益合計_百万円": total_profit,
+        "設備容量合計_MW": total_capacity,
+        "発電量合計_MWh": total_generation,
+        "CO2削減量合計_t": total_co2,
+        "パイプライン件数": pipeline_count,
+        "パイプライン金額合計_百万円": pipeline_total,
+        "パイプライン期待金額合計_百万円": pipeline_expected,
+        "セグメント一覧": SEGMENTS,
     }
 
 
@@ -65,11 +65,11 @@ async def get_financial(
     """Return monthly financial data (240 records)."""
     data = load_financial_data()
     if segment:
-        data = [r for r in data if r["segment"] == segment]
+        data = [r for r in data if r["セグメント"] == segment]
     if period_from:
-        data = [r for r in data if r["month"] >= period_from]
+        data = [r for r in data if r["年月"] >= period_from]
     if period_to:
-        data = [r for r in data if r["month"] <= period_to]
+        data = [r for r in data if r["年月"] <= period_to]
     return data
 
 
@@ -77,7 +77,7 @@ async def get_financial(
 async def get_financial_by_segment(segment: str) -> list[dict[str, Any]]:
     """Return financial data for a specific segment."""
     data = load_financial_data()
-    return [r for r in data if r["segment"] == segment]
+    return [r for r in data if r["セグメント"] == segment]
 
 
 @dashboard_router.get("/sfa")
@@ -88,9 +88,9 @@ async def get_sfa(
     """Return SFA pipeline data (30 deals)."""
     data = load_sfa_data()
     if stage:
-        data = [d for d in data if d["stage"] == stage]
+        data = [d for d in data if d["ステージ"] == stage]
     if segment:
-        data = [d for d in data if d["segment"] == segment]
+        data = [d for d in data if d["セグメント"] == segment]
     return data
 
 
@@ -100,19 +100,17 @@ async def get_sfa_summary() -> dict[str, Any]:
     data = load_sfa_data()
     stages: dict[str, dict[str, Any]] = {}
     for d in data:
-        s = d["stage"]
+        s = d["ステージ"]
         if s not in stages:
-            stages[s] = {"count": 0, "total_million_yen": 0, "expected_million_yen": 0}
-        stages[s]["count"] += 1
-        stages[s]["total_million_yen"] += d["amount_million_yen"]
-        stages[s]["expected_million_yen"] += d["expected_amount_million_yen"]
+            stages[s] = {"件数": 0, "案件金額合計_百万円": 0, "期待金額合計_百万円": 0}
+        stages[s]["件数"] += 1
+        stages[s]["案件金額合計_百万円"] += d["案件金額_百万円"]
+        stages[s]["期待金額合計_百万円"] += d["期待金額_百万円"]
     return {
-        "total_deals": len(data),
-        "total_pipeline_million_yen": sum(d["amount_million_yen"] for d in data),
-        "total_expected_million_yen": sum(
-            d["expected_amount_million_yen"] for d in data
-        ),
-        "by_stage": stages,
+        "案件数": len(data),
+        "パイプライン金額合計_百万円": sum(d["案件金額_百万円"] for d in data),
+        "期待金額合計_百万円": sum(d["期待金額_百万円"] for d in data),
+        "ステージ別": stages,
     }
 
 
@@ -124,10 +122,10 @@ async def get_documents(
     """Return internal documents list (20 docs)."""
     data = load_documents_data()
     if doc_type:
-        data = [d for d in data if d["doc_type"] == doc_type]
+        data = [d for d in data if d["文書種別"] == doc_type]
     if query:
         q = query.lower()
-        data = [d for d in data if q in d["title"].lower() or q in d["summary"].lower()]
+        data = [d for d in data if q in d["タイトル"].lower() or q in d["概要"].lower()]
     return data
 
 
@@ -152,24 +150,22 @@ async def get_generation(
 ) -> list[dict[str, Any]]:
     """Return generation performance data (capacity, output, utilization, CO2)."""
     data = load_financial_data()
-    # Only include segments that have generation assets
-    data = [r for r in data if r["segment"] in _GENERATION_SEGMENTS]
+    data = [r for r in data if r["セグメント"] in _GENERATION_SEGMENTS]
     if segment:
-        data = [r for r in data if r["segment"] == segment]
+        data = [r for r in data if r["セグメント"] == segment]
     if period_from:
-        data = [r for r in data if r["month"] >= period_from]
+        data = [r for r in data if r["年月"] >= period_from]
     if period_to:
-        data = [r for r in data if r["month"] <= period_to]
-    # Project only generation-related fields
+        data = [r for r in data if r["年月"] <= period_to]
     return [
         {
-            "month": r["month"],
-            "segment": r["segment"],
-            "capacity_mw": r["capacity_mw"],
-            "generation_mwh": r["generation_mwh"],
-            "utilization_rate_pct": r["utilization_rate_pct"],
-            "co2_reduction_ton": r["co2_reduction_ton"],
-            "revenue_million_yen": r["revenue_million_yen"],
+            "年月": r["年月"],
+            "セグメント": r["セグメント"],
+            "設備容量_MW": r["設備容量_MW"],
+            "発電量_MWh": r["発電量_MWh"],
+            "設備利用率_pct": r["設備利用率_pct"],
+            "CO2削減量_t": r["CO2削減量_t"],
+            "売上高_百万円": r["売上高_百万円"],
         }
         for r in data
     ]

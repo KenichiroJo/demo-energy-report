@@ -1,4 +1,4 @@
-"""Tests for the ORIX Energy Reporting agent tools."""
+"""Tests for the Energy Reporting agent tools."""
 
 import json
 

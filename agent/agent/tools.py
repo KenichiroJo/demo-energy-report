@@ -1,4 +1,4 @@
-"""ORIX Environment & Energy reporting tools for the LangGraph agent.
+"""Environment & Energy reporting tools for the LangGraph agent.
 
 These tools operate on mock data bundled in fastapi_server/app/mock_data/.
 In production, they would query Databricks / SharePoint via appropriate connectors.
@@ -78,7 +78,7 @@ def analyze_financial_data(
     Args:
         segment: セグメント名でフィルタ（例: メガソーラー発電, 風力発電（国内））。省略で全セグメント。
         year_month: 年月でフィルタ（例: 2025-01）。省略で全期間。
-        metric: 特定の指標名（revenue, operating_profit, generation_mwh 等）。省略で全指標。
+        metric: 特定の指標名（売上高_百万円, 営業利益_百万円, 発電量_MWh 等）。省略で全指標。
 
     Returns:
         JSON形式の財務データ。
@@ -91,14 +91,14 @@ def analyze_financial_data(
 
     filtered = data
     if segment:
-        filtered = [r for r in filtered if segment in r.get("segment", "")]
+        filtered = [r for r in filtered if segment in r.get("セグメント", "")]
     if year_month:
-        filtered = [r for r in filtered if r.get("month") == year_month]
+        filtered = [r for r in filtered if r.get("年月") == year_month]
 
     if metric:
         results = []
         for r in filtered:
-            entry = {"segment": r["segment"], "year_month": r["month"]}
+            entry = {"セグメント": r["セグメント"], "年月": r["年月"]}
             if metric in r:
                 entry[metric] = r[metric]
             results.append(entry)
@@ -106,23 +106,20 @@ def analyze_financial_data(
 
     # Summarise if the result set is large
     if len(filtered) > 30:
-        # Return aggregated summary instead
         segments = {}
         for r in filtered:
-            seg = r.get("segment", "unknown")
+            seg = r.get("セグメント", "不明")
             if seg not in segments:
                 segments[seg] = {
-                    "count": 0,
-                    "total_revenue": 0,
-                    "total_operating_profit": 0,
+                    "件数": 0,
+                    "売上高合計_百万円": 0,
+                    "営業利益合計_百万円": 0,
                 }
-            segments[seg]["count"] += 1
-            segments[seg]["total_revenue"] += r.get("revenue_million_yen", 0)
-            segments[seg]["total_operating_profit"] += r.get(
-                "operating_profit_million_yen", 0
-            )
+            segments[seg]["件数"] += 1
+            segments[seg]["売上高合計_百万円"] += r.get("売上高_百万円", 0)
+            segments[seg]["営業利益合計_百万円"] += r.get("営業利益_百万円", 0)
         return json.dumps(
-            {"summary": True, "record_count": len(filtered), "by_segment": segments},
+            {"集計": True, "レコード数": len(filtered), "セグメント別": segments},
             ensure_ascii=False,
         )
 
@@ -157,32 +154,31 @@ def analyze_sfa_pipeline(
 
     filtered = data
     if segment:
-        filtered = [d for d in filtered if segment in d.get("segment", "")]
+        filtered = [d for d in filtered if segment in d.get("セグメント", "")]
     if stage:
-        filtered = [d for d in filtered if d.get("stage") == stage]
+        filtered = [d for d in filtered if d.get("ステージ") == stage]
     if min_amount is not None:
-        filtered = [d for d in filtered if d.get("amount_million_yen", 0) >= min_amount]
+        filtered = [d for d in filtered if d.get("案件金額_百万円", 0) >= min_amount]
 
-    # Also compute a quick summary
-    total_amount = sum(d.get("amount_million_yen", 0) for d in filtered)
-    total_expected = sum(d.get("expected_amount_million_yen", 0) for d in filtered)
+    total_amount = sum(d.get("案件金額_百万円", 0) for d in filtered)
+    total_expected = sum(d.get("期待金額_百万円", 0) for d in filtered)
     stage_summary = {}
     for d in filtered:
-        s = d.get("stage", "不明")
+        s = d.get("ステージ", "不明")
         if s not in stage_summary:
-            stage_summary[s] = {"count": 0, "amount": 0, "expected": 0}
-        stage_summary[s]["count"] += 1
-        stage_summary[s]["amount"] += d.get("amount_million_yen", 0)
-        stage_summary[s]["expected"] += d.get("expected_amount_million_yen", 0)
+            stage_summary[s] = {"件数": 0, "案件金額合計": 0, "期待金額合計": 0}
+        stage_summary[s]["件数"] += 1
+        stage_summary[s]["案件金額合計"] += d.get("案件金額_百万円", 0)
+        stage_summary[s]["期待金額合計"] += d.get("期待金額_百万円", 0)
 
     return json.dumps(
         {
-            "deals": filtered,
-            "summary": {
-                "total_deals": len(filtered),
-                "total_amount_million_yen": total_amount,
-                "total_expected_amount_million_yen": total_expected,
-                "by_stage": stage_summary,
+            "案件一覧": filtered,
+            "サマリー": {
+                "案件数": len(filtered),
+                "案件金額合計_百万円": total_amount,
+                "期待金額合計_百万円": total_expected,
+                "ステージ別": stage_summary,
             },
         },
         ensure_ascii=False,
@@ -216,21 +212,21 @@ def search_documents(
 
     filtered = data
     if doc_type:
-        filtered = [d for d in filtered if doc_type in d.get("doc_type", "")]
+        filtered = [d for d in filtered if doc_type in d.get("文書種別", "")]
     if department:
-        filtered = [d for d in filtered if department in d.get("department", "")]
+        filtered = [d for d in filtered if department in d.get("所属部署", "")]
     if query:
         q_lower = query.lower()
         filtered = [
             d
             for d in filtered
-            if q_lower in d.get("title", "").lower()
-            or q_lower in d.get("summary", "").lower()
-            or any(q_lower in t.lower() for t in d.get("tags", []))
+            if q_lower in d.get("タイトル", "").lower()
+            or q_lower in d.get("概要", "").lower()
+            or any(q_lower in t.lower() for t in d.get("タグ", []))
         ]
 
     return json.dumps(
-        {"documents": filtered, "total": len(filtered)},
+        {"文書一覧": filtered, "件数": len(filtered)},
         ensure_ascii=False,
     )
 
@@ -258,18 +254,16 @@ def analyze_generation_data(
             {"error": "発電データが読み込めませんでした"}, ensure_ascii=False
         )
 
-    # Filter to records that have generation data
-    gen_data = [r for r in data if r.get("generation_mwh") is not None]
+    gen_data = [r for r in data if r.get("発電量_MWh") is not None]
 
     if segment:
-        gen_data = [r for r in gen_data if segment in r.get("segment", "")]
+        gen_data = [r for r in gen_data if segment in r.get("セグメント", "")]
 
     if period:
         if period == "latest":
-            # Get unique months and take last 3
-            months = sorted(set(r["month"] for r in gen_data))
+            months = sorted(set(r["年月"] for r in gen_data))
             last_3 = months[-3:] if len(months) >= 3 else months
-            gen_data = [r for r in gen_data if r["month"] in last_3]
+            gen_data = [r for r in gen_data if r["年月"] in last_3]
         elif "-Q" in period:
             year, q = period.split("-Q")
             q = int(q)
@@ -283,42 +277,37 @@ def analyze_generation_data(
             gen_data = [
                 r
                 for r in gen_data
-                if f"{year}-{start_m}" <= r["month"] <= f"{year}-{end_m}"
+                if f"{year}-{start_m}" <= r["年月"] <= f"{year}-{end_m}"
             ]
         else:
-            gen_data = [r for r in gen_data if r["month"] == period]
+            gen_data = [r for r in gen_data if r["年月"] == period]
 
-    # Build summary
     segments_summary = {}
     for r in gen_data:
-        seg = r["segment"]
+        seg = r["セグメント"]
         if seg not in segments_summary:
             segments_summary[seg] = {
-                "months": [],
-                "total_generation_mwh": 0,
-                "avg_utilization_pct": [],
-                "total_capacity_mw": 0,
+                "月数": 0,
+                "発電量合計_MWh": 0,
+                "設備利用率一覧": [],
+                "設備容量_MW": 0,
             }
-        segments_summary[seg]["months"].append(r["month"])
-        segments_summary[seg]["total_generation_mwh"] += r.get("generation_mwh", 0)
-        if r.get("utilization_rate_pct") is not None:
-            segments_summary[seg]["avg_utilization_pct"].append(
-                r["utilization_rate_pct"]
-            )
-        segments_summary[seg]["total_capacity_mw"] = max(
-            segments_summary[seg]["total_capacity_mw"], r.get("capacity_mw", 0)
+        segments_summary[seg]["月数"] += 1
+        segments_summary[seg]["発電量合計_MWh"] += r.get("発電量_MWh", 0)
+        if r.get("設備利用率_pct") is not None:
+            segments_summary[seg]["設備利用率一覧"].append(r["設備利用率_pct"])
+        segments_summary[seg]["設備容量_MW"] = max(
+            segments_summary[seg]["設備容量_MW"], r.get("設備容量_MW", 0)
         )
 
-    # Compute averages
     for seg_info in segments_summary.values():
-        rates = seg_info.pop("avg_utilization_pct")
-        seg_info["avg_utilization_pct"] = (
+        rates = seg_info.pop("設備利用率一覧")
+        seg_info["平均設備利用率_pct"] = (
             round(sum(rates) / len(rates), 1) if rates else None
         )
-        seg_info["month_count"] = len(seg_info.pop("months"))
 
     return json.dumps(
-        {"generation_analysis": segments_summary, "record_count": len(gen_data)},
+        {"発電実績分析": segments_summary, "レコード数": len(gen_data)},
         ensure_ascii=False,
     )
 

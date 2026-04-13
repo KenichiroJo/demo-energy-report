@@ -61,7 +61,7 @@ export function MainLayout() {
               E
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-bold text-sidebar-foreground">ORIX 環境エネルギー</span>
+              <span className="text-sm font-bold text-sidebar-foreground">環境エネルギー本部</span>
               <span className="text-xs text-sidebar-foreground/60">経営レポーティング</span>
             </div>
           </div>

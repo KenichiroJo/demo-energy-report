@@ -30,7 +30,7 @@ from agent.tools import ALL_TOOLS
 
 
 class MyAgent(LangGraphAgent):
-    """ORIX環境エネルギー本部 経営レポーティングエージェント。
+    """環境エネルギー本部 経営レポーティングエージェント。
 
     財務データ、SFAパイプライン、社内文書、発電実績を横断的に分析し、
     経営企画・経営層向けの構造化レポートを対話形式で提供する。
@@ -87,7 +87,7 @@ class MyAgent(LangGraphAgent):
             [
                 (
                     "system",
-                    "あなたはORIX環境エネルギー本部の経営レポーティングAIです。"
+                    "あなたは環境エネルギー本部の経営レポーティングAIです。"
                     "ユーザーの質問に対し、財務データ・SFAパイプライン・社内文書・発電実績を統合的に分析し、"
                     "経営判断に資する回答を提供します。"
                     "会話履歴は {chat_history} で参照できます（空の場合もあります）。",
@@ -142,7 +142,7 @@ class MyAgent(LangGraphAgent):
             self.llm(),
             tools=ALL_TOOLS + self.mcp_tools + self._workflow_tools,
             system_prompt=make_system_prompt(
-                "あなたはORIX環境エネルギー本部のルーターエージェントです。\n"
+                "あなたは環境エネルギー本部のルーターエージェントです。\n"
                 "ユーザーの質問を分析し、必要なデータソースを特定して取得します。\n\n"
                 "## 対応データソース\n"
                 "1. **財務データ** (analyze_financial_data): 売上・利益・発電量の月次データ\n"
@@ -169,7 +169,7 @@ class MyAgent(LangGraphAgent):
             self.llm(),
             tools=ALL_TOOLS + self.mcp_tools + self._workflow_tools,
             system_prompt=make_system_prompt(
-                "あなたはORIX環境エネルギー本部のデータアナリストです。\n"
+                "あなたは環境エネルギー本部のデータアナリストです。\n"
                 "ルーターが収集したデータを分析し、経営判断に有用な洞察を導出します。\n\n"
                 "## 分析の観点\n"
                 "- **前期比・前年比**: 数値の変化率を計算し、トレンドを特定\n"
@@ -195,7 +195,7 @@ class MyAgent(LangGraphAgent):
             self.llm(),
             tools=self.mcp_tools + self._workflow_tools,
             system_prompt=make_system_prompt(
-                "あなたはORIX環境エネルギー本部のレポートライターです。\n"
+                "あなたは環境エネルギー本部のレポートライターです。\n"
                 "アナリストの分析結果を基に、経営企画・経営層向けの構造化レポートを作成します。\n\n"
                 "## レポート構成\n"
                 "1. **エグゼクティブサマリー** (3-5文): 重要なポイントの概要\n"

@@ -247,3 +247,4 @@ Taskfile.gen.yaml
 .datarobot/cli/state.yaml
 
 .history/
+.DS_Store

@@ -19,7 +19,3 @@ def load_sfa_data() -> list[dict]:
 
 def load_documents_data() -> list[dict]:
     return _load("documents.json")
-
-
-def load_generation_data() -> list[dict]:
-    return _load("generation.json")
