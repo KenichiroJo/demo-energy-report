@@ -1,6 +1,7 @@
 @import '@fontsource/inter/index.css';
 @import '@fontsource/inter/600.css';
 @import '@fontsource/roboto-mono/400.css';
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
 
 @config './tailwind.config.ts';
 @custom-variant dark (&:is(.dark *));
@@ -45,19 +46,19 @@
 }
 
 :root {
-  --font-serif: 'Inter', sans-serif;
+  --font-serif: 'Noto Sans JP', 'Inter', sans-serif;
   --font-mono: 'Roboto Mono';
   --radius: 0.375rem;
   --background: var(--alpine-light-90);
   --foreground: var(--alpine-light-10);
   --primary: var(--alpine-light-10);
   --primary-foreground: var(--alpine-light-100);
-  --secondary: var(--purple-0);
+  --secondary: var(--green-0);
   --secondary-foreground: var(--alpine-light-20);
   --muted: var(--alpine-light-60);
   --muted-foreground: var(--alpine-light-30);
-  --accent: var(--purple-60);
-  --accent-foreground: var(--purple-70);
+  --accent: var(--green-70);
+  --accent-foreground: var(--green-80);
   --destructive: var(--red-70);
   --destructive-foreground: var(--red-70);
   --ring: var(--alpine-light-0);
@@ -70,18 +71,18 @@
 
   --sidebar: var(--alpine-light-100);
   --sidebar-foreground: var(--alpine-light-10);
-  --sidebar-primary: var(--purple-0);
+  --sidebar-primary: var(--green-40);
   --sidebar-primary-foreground: var(--alpine-light-20);
-  --sidebar-accent: var(--purple-10);
+  --sidebar-accent: var(--green-40);
   --sidebar-accent-foreground: var(--alpine-light-10);
   --sidebar-border: var(--alpine-light-60);
   --sidebar-ring: var(--alpine-light-0);
 
-  --chart-1: var(--purple-70);
-  --chart-2: var(--pink-60);
-  --chart-3: var(--turquoise-60);
+  --chart-1: var(--green-70);
+  --chart-2: var(--turquoise-60);
+  --chart-3: var(--blue-60);
   --chart-4: var(--orange-60);
-  --chart-5: var(--blue-60);
+  --chart-5: var(--yellow-60);
 
   --link: var(--azure-80);
   --success: var(--green-70);
@@ -107,8 +108,8 @@
   --primary-foreground: var(--midnight-gray-90);
   --muted: var(--midnight-gray-50);
   --muted-foreground: var(--midnight-gray-30);
-  --accent: var(--purple-50);
-  --accent-foreground: var(--purple-40);
+  --accent: var(--green-50);
+  --accent-foreground: var(--green-40);
   --destructive: var(--red-70);
   --destructive-foreground: var(--red-40);
   --ring: var(--midnight-gray-0);
@@ -121,18 +122,18 @@
 
   --sidebar: var(--midnight-gray-80);
   --sidebar-foreground: var(--midnight-gray-10);
-  --sidebar-primary: var(--midnight-gray-60);
+  --sidebar-primary: var(--green-70);
   --sidebar-primary-foreground: var(--midnight-gray-20);
-  --sidebar-accent: var(--midnight-gray-55);
+  --sidebar-accent: var(--green-80);
   --sidebar-accent-foreground: var(--midnight-gray-10);
   --sidebar-border: var(--midnight-gray-60);
   --sidebar-ring: var(--midnight-gray-50);
 
-  --chart-1: var(--purple-50);
-  --chart-2: var(--pink-40);
-  --chart-3: var(--turquoise-40);
+  --chart-1: var(--green-50);
+  --chart-2: var(--turquoise-40);
+  --chart-3: var(--blue-40);
   --chart-4: var(--orange-40);
-  --chart-5: var(--blue-40);
+  --chart-5: var(--yellow-40);
 
   --link: var(--azure-50);
   --success: var(--green-40);

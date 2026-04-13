@@ -55,6 +55,17 @@ export function MainLayout() {
         onChatSelect={setChatIdHandler}
         onChatDelete={deleteChatHandler}
         isDeletingChat={isDeletingChat}
+        header={
+          <div className="flex items-center gap-3 px-4 py-4 border-b border-sidebar-border">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-accent-foreground font-bold text-sm">
+              E
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-sidebar-foreground">ORIX 環境エネルギー</span>
+              <span className="text-xs text-sidebar-foreground/60">経営レポーティング</span>
+            </div>
+          </div>
+        }
       />
       <MainLayoutProvider
         value={{
