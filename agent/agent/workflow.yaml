@@ -1,0 +1,73 @@
+---
+# Copyright 2025 DataRobot, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+general:
+  front_end:
+    _type: dragent_fastapi
+    # Step adaptor is not necessary for custom agents
+    step_adaptor:
+      mode: 'off'
+    # If you don't want your agent to expose A2A endpoints, remove the following block.
+    a2a:
+      server:
+        name: ORIX Energy Reporting Agent
+        description: ORIX環境エネルギー本部の経営レポーティングエージェント。財務データ、SFAパイプライン、社内文書、発電実績を統合的に分析し、経営層向けの構造化レポートを提供します。
+      skills:
+        - id: financial_analysis
+          name: 財務分析
+          description: セグメント別の売上・利益・発電量等の財務データを分析します。
+          tags: []
+          examples:
+            - 今期の環境エネルギー本部全体の売上推移を教えてください
+            - メガソーラー発電セグメントの直近3ヶ月の業績を分析してください
+        - id: sfa_pipeline
+          name: SFA パイプライン分析
+          description: 営業案件のステージ別・セグメント別分析と着地見込みを提供します。
+          tags: []
+          examples:
+            - 現在のパイプラインの受注見込み総額を教えてください
+            - 風力発電セグメントの交渉中案件を一覧してください
+        - id: document_summary
+          name: 文書要約・検索
+          description: 社内文書（事業計画書、議事録、報告書等）を検索・要約します。
+          tags: []
+          examples:
+            - GX推進に関する最新の文書を要約してください
+            - 洋上風力市場に関するレポートを探してください
+        - id: composite_report
+          name: 複合レポート生成
+          description: 複数データソースを横断した経営向け統合レポートを生成します。
+          tags: []
+          examples:
+            - 今期の業績サマリーとパイプライン状況を統合レポートにまとめてください
+            - 環境エネルギー本部の四半期報告書を作成してください
+# To connect this agent to a remote A2A agent, uncomment the block below and add the
+# function group name to the workflow's tool_names list.
+# function_groups:
+#   remote_agent:
+#     _type: authenticated_a2a_client
+#     url: "https://app.datarobot.com/api/v2/deployments/<deployment-id>/directAccess/a2a/"
+#     auth_provider: datarobot_auth
+llms:
+  datarobot_llm:
+    _type: datarobot-llm-component
+workflow:
+  _type: langgraph_agent
+  llm_name: datarobot_llm
+  description: ORIX環境エネルギー経営レポーティングエージェント
+  # tool_names:
+  #   - remote_agent
+authentication:
+  datarobot_auth:
+    _type: datarobot_api_key
