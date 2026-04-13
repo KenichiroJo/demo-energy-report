@@ -56,6 +56,7 @@ export function ChatTextInput({
         onCompositionStart={() => setIsComposing(true)}
         onCompositionEnd={() => setIsComposing(false)}
         onKeyDown={keyDownHandler}
+        placeholder={t('Type a message...')}
         className="h-auto min-h-20 flex-1 shrink-0 resize-none overflow-x-hidden overflow-y-auto pr-12"
       ></Textarea>
       {runningAgent ? (

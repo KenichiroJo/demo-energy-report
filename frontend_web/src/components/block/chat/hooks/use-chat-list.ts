@@ -42,7 +42,7 @@ export function useChatList({ chatId, setChatId, showStartChat = false }: UseCha
   };
 
   function addChatHandler() {
-    const newChatID = createChat('New');
+    const newChatID = createChat('新規チャット');
     setChatId(newChatID);
   }
 

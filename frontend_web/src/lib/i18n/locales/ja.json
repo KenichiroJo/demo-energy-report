@@ -17,7 +17,7 @@
   "Please try again or contact support if the problem persists.": "再度お試しいただくか、問題が続く場合はサポートまでお問い合わせください。",
   "Failed to load connected sources.": "接続ソースの読み込みに失敗しました。",
   "No sources available.": "利用可能なソースがありません。",
-  "Start new chat": "新しいチャットを開始",
+  "Start new chat": "新しいチャット",
   "Chats": "チャット履歴",
   "No chats selected": "チャットが選択されていません",
   "Choose an existing conversation from the sidebar or start a new chat": "サイドバーから既存の会話を選択するか、新しいチャットを開始してください",
@@ -38,5 +38,16 @@
   "Theme": "テーマ",
   "Light": "ライト",
   "Dark": "ダーク",
-  "System": "システム"
+  "System": "システム",
+  "Thinking": "思考中",
+  "Tool Call": "ツール呼び出し",
+  "Arguments": "引数",
+  "Result": "結果",
+  "Failed to render message": "メッセージの表示に失敗しました",
+  "Remove chat?": "チャットを削除しますか？",
+  "This action will remove {{chatName}} chat.": "{{chatName}} チャットを削除します。",
+  "Remove": "削除",
+  "Error": "エラー",
+  "Agent is running": "エージェント実行中",
+  "New": "新規"
 }
