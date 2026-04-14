@@ -189,34 +189,35 @@ export function ReportPage() {
       forwarded_props: '',
     };
 
-    try {
-      const resp = await fetch(getAgUiEndpoint(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
+    // アシスタントメッセージのプレースホルダーを追加
+    setChatMessages((prev) => [...prev, { role: 'assistant', text: '' }]);
+
+    let assistantText = '';
+
+    const updateAssistantText = (text: string) => {
+      assistantText = text;
+      setChatMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: 'assistant', text };
+        return updated;
       });
+    };
 
-      if (!resp.ok || !resp.body) {
-        throw new Error(`API error: ${resp.status}`);
-      }
+    // XMLHttpRequest でSSEストリーミング（プロキシ経由での互換性が高い）
+    await new Promise<void>((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', getAgUiEndpoint(), true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.withCredentials = true;
+      xhr.responseType = 'text';
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let assistantText = '';
-      let buffer = '';
+      let lastIndex = 0;
 
-      // アシスタントメッセージのプレースホルダーを追加
-      setChatMessages((prev) => [...prev, { role: 'assistant', text: '' }]);
+      xhr.onprogress = () => {
+        const newData = xhr.responseText.substring(lastIndex);
+        lastIndex = xhr.responseText.length;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
+        const lines = newData.split('\n');
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           const jsonStr = line.slice(6).trim();
@@ -224,42 +225,88 @@ export function ReportPage() {
 
           try {
             const event = JSON.parse(jsonStr);
-
             if (event.type === 'text_message_content' && event.text) {
-              assistantText += event.text;
-              setChatMessages((prev) => {
-                const updated = [...prev];
-                updated[updated.length - 1] = { role: 'assistant', text: assistantText };
-                return updated;
-              });
+              updateAssistantText(assistantText + event.text);
             }
           } catch {
-            // JSON parse error - skip
+            // JSON parse error - skip partial lines
           }
         }
-      }
+      };
 
-      // 会話履歴に追加
-      chatHistoryRef.current.push({
-        id: `msg-${crypto.randomUUID()}`,
-        role: 'assistant',
-        content: assistantText,
-        name: 'assistant',
-      });
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'エラーが発生しました';
-      setChatMessages((prev) => {
-        const updated = [...prev];
-        if (updated.length > 0 && updated[updated.length - 1].role === 'assistant' && updated[updated.length - 1].text === '') {
-          updated[updated.length - 1] = { role: 'assistant', text: `エラー: ${errorMsg}` };
-        } else {
-          updated.push({ role: 'assistant', text: `エラー: ${errorMsg}` });
+      xhr.onload = () => {
+        // 成功完了 - 残りのデータも処理
+        if (xhr.status === 200) {
+          const remaining = xhr.responseText.substring(lastIndex);
+          const lines = remaining.split('\n');
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const jsonStr = line.slice(6).trim();
+            if (!jsonStr) continue;
+            try {
+              const event = JSON.parse(jsonStr);
+              if (event.type === 'text_message_content' && event.text) {
+                updateAssistantText(assistantText + event.text);
+              }
+            } catch {
+              // skip
+            }
+          }
         }
-        return updated;
-      });
-    } finally {
-      setIsStreaming(false);
-    }
+
+        if (!assistantText) {
+          updateAssistantText('応答を取得できませんでした。再度お試しください。');
+        }
+
+        // 会話履歴に追加
+        chatHistoryRef.current.push({
+          id: `msg-${crypto.randomUUID()}`,
+          role: 'assistant',
+          content: assistantText,
+          name: 'assistant',
+        });
+
+        setIsStreaming(false);
+        resolve();
+      };
+
+      xhr.onerror = () => {
+        console.error('SSE stream error:', xhr.status, xhr.statusText);
+        if (assistantText) {
+          // 部分的なデータがあればそれを保持
+          chatHistoryRef.current.push({
+            id: `msg-${crypto.randomUUID()}`,
+            role: 'assistant',
+            content: assistantText,
+            name: 'assistant',
+          });
+        } else {
+          updateAssistantText('ネットワークエラーが発生しました。ページを更新して再度お試しください。');
+        }
+        setIsStreaming(false);
+        resolve();
+      };
+
+      xhr.ontimeout = () => {
+        if (assistantText) {
+          chatHistoryRef.current.push({
+            id: `msg-${crypto.randomUUID()}`,
+            role: 'assistant',
+            content: assistantText,
+            name: 'assistant',
+          });
+        } else {
+          updateAssistantText('応答がタイムアウトしました。');
+        }
+        setIsStreaming(false);
+        resolve();
+      };
+
+      // 5分タイムアウト（エージェントの処理時間を考慮）
+      xhr.timeout = 300000;
+
+      xhr.send(JSON.stringify(payload));
+    });
   }, []);
 
   const openChatWithPrompt = useCallback((prompt: string) => {
