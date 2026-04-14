@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart3,
@@ -12,10 +12,12 @@ import {
   Download,
   RotateCcw,
   ArrowUp,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Markdown } from '@/components/ui/markdown';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { getAgUiEndpoint } from '@/lib/url-utils';
 
 // ---------------------------------------------------------------------------
 // レポートセクション定義
@@ -152,6 +154,9 @@ export function ReportPage() {
     { role: 'user' | 'assistant'; text: string }[]
   >([]);
   const [chatInput, setChatInput] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const threadIdRef = useRef<string>(`report-${crypto.randomUUID()}`);
+  const chatHistoryRef = useRef<{ id: string; role: string; content: string; name: string }[]>([]);
 
   const toggleSection = useCallback((id: string) => {
     setExpandedSections((prev) => {
@@ -162,37 +167,115 @@ export function ReportPage() {
     });
   }, []);
 
+  // AG-UI SSE でバックエンドにメッセージ送信
+  const sendToAgent = useCallback(async (userText: string) => {
+    setIsStreaming(true);
+
+    const userMsgId = `msg-${crypto.randomUUID()}`;
+    chatHistoryRef.current.push({
+      id: userMsgId,
+      role: 'user',
+      content: userText,
+      name: 'user',
+    });
+
+    const payload = {
+      thread_id: threadIdRef.current,
+      run_id: crypto.randomUUID(),
+      state: '',
+      messages: chatHistoryRef.current,
+      tools: [],
+      context: [],
+      forwarded_props: '',
+    };
+
+    try {
+      const resp = await fetch(getAgUiEndpoint(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      if (!resp.ok || !resp.body) {
+        throw new Error(`API error: ${resp.status}`);
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantText = '';
+      let buffer = '';
+
+      // アシスタントメッセージのプレースホルダーを追加
+      setChatMessages((prev) => [...prev, { role: 'assistant', text: '' }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr) continue;
+
+          try {
+            const event = JSON.parse(jsonStr);
+
+            if (event.type === 'text_message_content' && event.text) {
+              assistantText += event.text;
+              setChatMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: 'assistant', text: assistantText };
+                return updated;
+              });
+            }
+          } catch {
+            // JSON parse error - skip
+          }
+        }
+      }
+
+      // 会話履歴に追加
+      chatHistoryRef.current.push({
+        id: `msg-${crypto.randomUUID()}`,
+        role: 'assistant',
+        content: assistantText,
+        name: 'assistant',
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'エラーが発生しました';
+      setChatMessages((prev) => {
+        const updated = [...prev];
+        if (updated.length > 0 && updated[updated.length - 1].role === 'assistant' && updated[updated.length - 1].text === '') {
+          updated[updated.length - 1] = { role: 'assistant', text: `エラー: ${errorMsg}` };
+        } else {
+          updated.push({ role: 'assistant', text: `エラー: ${errorMsg}` });
+        }
+        return updated;
+      });
+    } finally {
+      setIsStreaming(false);
+    }
+  }, []);
+
   const openChatWithPrompt = useCallback((prompt: string) => {
     setChatOpen(true);
     setChatMessages([{ role: 'user', text: prompt }]);
-    // TODO: 実際のAIバックエンドに接続
-    setTimeout(() => {
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          text: 'ただいま分析中です。バックエンドAPI接続後、AIが詳細な回答を提供します。',
-        },
-      ]);
-    }, 800);
-  }, []);
+    chatHistoryRef.current = [];
+    sendToAgent(prompt);
+  }, [sendToAgent]);
 
   const sendChatMessage = useCallback(() => {
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim() || isStreaming) return;
     const msg = chatInput.trim();
     setChatInput('');
     setChatMessages((prev) => [...prev, { role: 'user', text: msg }]);
-    // TODO: 実際のAIバックエンドに接続
-    setTimeout(() => {
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          text: 'ただいま分析中です。バックエンドAPI接続後、AIが詳細な回答を提供します。',
-        },
-      ]);
-    }, 800);
-  }, [chatInput]);
+    sendToAgent(msg);
+  }, [chatInput, isStreaming, sendToAgent]);
 
   return (
     <div className="flex h-svh w-full bg-background">
@@ -342,7 +425,13 @@ export function ReportPage() {
                           : 'bg-muted'
                       }`}
                     >
-                      {msg.text}
+                      {msg.role === 'assistant' && msg.text ? (
+                        <Markdown content={msg.text} />
+                      ) : msg.role === 'assistant' && !msg.text ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        msg.text
+                      )}
                     </div>
                   </div>
                 ))}
@@ -364,10 +453,11 @@ export function ReportPage() {
                   }
                 }}
                 placeholder="質問を入力..."
-                className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+                disabled={isStreaming}
+                className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-50"
               />
-              <Button size="sm" onClick={sendChatMessage} disabled={!chatInput.trim()}>
-                <ArrowUp className="h-4 w-4" />
+              <Button size="sm" onClick={sendChatMessage} disabled={!chatInput.trim() || isStreaming}>
+                {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
               </Button>
             </div>
           </div>
