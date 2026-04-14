@@ -40,6 +40,9 @@ def _load_json(name: str) -> list[dict]:
 _FINANCIAL: list[dict] | None = None
 _SFA: list[dict] | None = None
 _DOCUMENTS: list[dict] | None = None
+_KPI: list[dict] | None = None
+_ESG: list[dict] | None = None
+_PROJECTS: list[dict] | None = None
 
 
 def _financial() -> list[dict]:
@@ -61,6 +64,27 @@ def _documents() -> list[dict]:
     if _DOCUMENTS is None:
         _DOCUMENTS = _load_json("documents.json")
     return _DOCUMENTS
+
+
+def _kpi() -> list[dict]:
+    global _KPI
+    if _KPI is None:
+        _KPI = _load_json("kpi_targets.json")
+    return _KPI
+
+
+def _esg() -> list[dict]:
+    global _ESG
+    if _ESG is None:
+        _ESG = _load_json("esg.json")
+    return _ESG
+
+
+def _projects() -> list[dict]:
+    global _PROJECTS
+    if _PROJECTS is None:
+        _PROJECTS = _load_json("projects.json")
+    return _PROJECTS
 
 
 # ============================================================================
@@ -114,10 +138,22 @@ def analyze_financial_data(
                     "件数": 0,
                     "売上高合計_百万円": 0,
                     "営業利益合計_百万円": 0,
+                    "EBITDA合計_百万円": 0,
+                    "予算_売上高合計_百万円": 0,
+                    "予算_営業利益合計_百万円": 0,
                 }
             segments[seg]["件数"] += 1
             segments[seg]["売上高合計_百万円"] += r.get("売上高_百万円", 0)
             segments[seg]["営業利益合計_百万円"] += r.get("営業利益_百万円", 0)
+            segments[seg]["EBITDA合計_百万円"] += r.get("EBITDA_百万円", 0) or 0
+            segments[seg]["予算_売上高合計_百万円"] += r.get("予算_売上高_百万円", 0) or 0
+            segments[seg]["予算_営業利益合計_百万円"] += r.get("予算_営業利益_百万円", 0) or 0
+        # Add budget achievement ratio
+        for seg_info in segments.values():
+            bud_rev = seg_info["予算_売上高合計_百万円"]
+            seg_info["売上予算達成率_pct"] = (
+                round(seg_info["売上高合計_百万円"] / bud_rev * 100, 1) if bud_rev else None
+            )
         return json.dumps(
             {"集計": True, "レコード数": len(filtered), "セグメント別": segments},
             ensure_ascii=False,
@@ -140,7 +176,7 @@ def analyze_sfa_pipeline(
 
     Args:
         segment: セグメント名でフィルタ。
-        stage: ステージでフィルタ（リード, 提案, 交渉, 内定, 受注）。
+        stage: ステージでフィルタ（リード, 提案, 交渉, 内定, 受注, 失注）。
         min_amount: 最低金額（百万円）でフィルタ。
 
     Returns:
@@ -171,6 +207,21 @@ def analyze_sfa_pipeline(
         stage_summary[s]["案件金額合計"] += d.get("案件金額_百万円", 0)
         stage_summary[s]["期待金額合計"] += d.get("期待金額_百万円", 0)
 
+    # Loss analysis
+    lost_deals = [d for d in filtered if d.get("ステージ") == "失注"]
+    loss_reasons = {}
+    for d in lost_deals:
+        reason = d.get("失注理由", "不明")
+        if reason:
+            loss_reasons[reason] = loss_reasons.get(reason, 0) + 1
+
+    # Competitor analysis
+    competitors = {}
+    for d in filtered:
+        comp = d.get("競合", "")
+        if comp:
+            competitors[comp] = competitors.get(comp, 0) + 1
+
     return json.dumps(
         {
             "案件一覧": filtered,
@@ -179,6 +230,8 @@ def analyze_sfa_pipeline(
                 "案件金額合計_百万円": total_amount,
                 "期待金額合計_百万円": total_expected,
                 "ステージ別": stage_summary,
+                "失注理由分析": loss_reasons if loss_reasons else None,
+                "競合出現頻度": competitors if competitors else None,
             },
         },
         ensure_ascii=False,
@@ -197,8 +250,8 @@ def search_documents(
     """社内文書（事業計画書、議事録、報告書等）を検索・要約します。
 
     Args:
-        query: 検索キーワード（タイトル、タグ、要約に対して検索）。
-        doc_type: 文書種別でフィルタ（事業計画書, 議事録, 報告書, 分析レポート 等）。
+        query: 検索キーワード（タイトル、タグ、要約、関連セグメントに対して検索）。
+        doc_type: 文書種別でフィルタ（事業計画, 月次報告, 議事録, 分析レポート, ESG報告, 技術評価, 規程 等）。
         department: 部署名でフィルタ。
 
     Returns:
@@ -222,6 +275,7 @@ def search_documents(
             for d in filtered
             if q_lower in d.get("タイトル", "").lower()
             or q_lower in d.get("概要", "").lower()
+            or q_lower in d.get("関連セグメント", "").lower()
             or any(q_lower in t.lower() for t in d.get("タグ", []))
         ]
 
@@ -351,6 +405,173 @@ def get_user_feedback_context() -> str:
     return json.dumps(summary, ensure_ascii=False)
 
 
+# ============================================================================
+# Tool 6: KPI目標達成分析ツール
+# ============================================================================
+@tool
+def analyze_kpi_performance(
+    category: Optional[str] = None,
+    fiscal_year: Optional[str] = None,
+) -> str:
+    """中期経営計画のKPI目標に対する達成状況を分析します。
+    財務・事業・ESG・人材カテゴリのKPIを確認できます。
+
+    Args:
+        category: KPIカテゴリでフィルタ（財務, 事業, ESG, 人材）。省略で全カテゴリ。
+        fiscal_year: 年度指定（例: "FY2024"）。省略で全年度を表示。
+
+    Returns:
+        JSON形式のKPI達成状況。
+    """
+    data = _kpi()
+    if not data:
+        return json.dumps(
+            {"error": "KPIデータが読み込めませんでした"}, ensure_ascii=False
+        )
+
+    filtered = data
+    if category:
+        filtered = [d for d in filtered if d.get("カテゴリ") == category]
+
+    results = []
+    for kpi in filtered:
+        entry = dict(kpi)
+        # Add achievement analysis if fiscal_year specified
+        if fiscal_year:
+            actual_key = f"{fiscal_year}実績"
+            target_key = f"{fiscal_year}目標"
+            actual = kpi.get(actual_key)
+            target = kpi.get(target_key)
+            if actual is not None and target is not None and target != 0:
+                entry["達成率_pct"] = round(actual / target * 100, 1)
+                entry["差分"] = round(actual - target, 2)
+        results.append(entry)
+
+    return json.dumps(
+        {"KPI一覧": results, "件数": len(results)},
+        ensure_ascii=False,
+    )
+
+
+# ============================================================================
+# Tool 7: ESG指標分析ツール
+# ============================================================================
+@tool
+def analyze_esg_metrics(
+    year_month: Optional[str] = None,
+    metric: Optional[str] = None,
+) -> str:
+    """ESG（環境・社会・ガバナンス）関連指標の月次データを分析します。
+    CO2削減量、再エネ供給量、カーボンクレジット、Scope排出量等を確認できます。
+
+    Args:
+        year_month: 年月でフィルタ（例: "2025-01"）。省略で全期間。
+        metric: 特定のESG指標名で絞り込み（CO2削減量_t, 再エネ供給量_MWh 等）。
+
+    Returns:
+        JSON形式のESGデータとトレンド。
+    """
+    data = _esg()
+    if not data:
+        return json.dumps(
+            {"error": "ESGデータが読み込めませんでした"}, ensure_ascii=False
+        )
+
+    filtered = data
+    if year_month:
+        filtered = [r for r in filtered if r.get("年月") == year_month]
+
+    if metric:
+        results = [{"年月": r["年月"], metric: r.get(metric)} for r in filtered]
+        return json.dumps({"ESGデータ": results, "件数": len(results)}, ensure_ascii=False)
+
+    # Provide cumulative/average summary if showing all data
+    if len(filtered) > 6:
+        totals = {
+            "CO2削減量合計_t": sum(r.get("CO2削減量_t", 0) for r in filtered),
+            "再エネ供給量合計_MWh": sum(r.get("再エネ供給量_MWh", 0) for r in filtered),
+            "カーボンクレジット販売合計_百万円": sum(r.get("カーボンクレジット販売_百万円", 0) for r in filtered),
+            "Scope1排出量合計_tCO2": sum(r.get("Scope1排出量_tCO2", 0) for r in filtered),
+            "Scope2排出量合計_tCO2": sum(r.get("Scope2排出量_tCO2", 0) for r in filtered),
+            "労災件数合計": sum(r.get("労災件数", 0) for r in filtered),
+            "ヒヤリハット報告合計": sum(r.get("ヒヤリハット報告件数", 0) for r in filtered),
+            "最新RE100供給企業数": max(r.get("RE100供給企業数", 0) for r in filtered),
+        }
+        return json.dumps(
+            {"集計": True, "期間レコード数": len(filtered), "累計": totals, "月次データ": filtered},
+            ensure_ascii=False,
+        )
+
+    return json.dumps({"ESGデータ": filtered, "件数": len(filtered)}, ensure_ascii=False)
+
+
+# ============================================================================
+# Tool 8: プロジェクト進捗分析ツール
+# ============================================================================
+@tool
+def analyze_project_milestones(
+    project_name: Optional[str] = None,
+    segment: Optional[str] = None,
+    status: Optional[str] = None,
+) -> str:
+    """主要プロジェクトのマイルストーン進捗を分析します。
+    洋上風力、蓄電所、海外案件等の大型プロジェクトの状況を確認できます。
+
+    Args:
+        project_name: プロジェクト名で検索（部分一致）。
+        segment: セグメント名でフィルタ。
+        status: プロジェクトステータスでフィルタ（開発中, 建設中, 設計中, 調査中, FID承認済）。
+
+    Returns:
+        JSON形式のプロジェクト進捗データ。
+    """
+    data = _projects()
+    if not data:
+        return json.dumps(
+            {"error": "プロジェクトデータが読み込めませんでした"}, ensure_ascii=False
+        )
+
+    filtered = data
+    if project_name:
+        filtered = [p for p in filtered if project_name in p.get("プロジェクト名", "")]
+    if segment:
+        filtered = [p for p in filtered if segment in p.get("セグメント", "")]
+    if status:
+        filtered = [p for p in filtered if p.get("ステータス") == status]
+
+    # Add progress summary per project
+    results = []
+    for p in filtered:
+        milestones = p.get("マイルストーン", [])
+        total = len(milestones)
+        completed = sum(1 for m in milestones if m.get("状態") == "完了")
+        in_progress = sum(1 for m in milestones if m.get("状態") == "進行中")
+        delayed = sum(
+            1 for m in milestones
+            if m.get("状態") == "完了" and m.get("実績日", "") > m.get("計画日", "")
+        )
+        entry = dict(p)
+        entry["進捗サマリー"] = {
+            "完了": completed,
+            "進行中": in_progress,
+            "未着手": total - completed - in_progress,
+            "遅延あり": delayed,
+            "進捗率_pct": round(completed / total * 100, 1) if total else 0,
+        }
+        results.append(entry)
+
+    total_investment = sum(p.get("総投資額_億円", 0) for p in filtered)
+
+    return json.dumps(
+        {
+            "プロジェクト一覧": results,
+            "件数": len(results),
+            "総投資額合計_億円": total_investment,
+        },
+        ensure_ascii=False,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Convenience: list of all tools for easy import
 # ---------------------------------------------------------------------------
@@ -360,4 +581,7 @@ ALL_TOOLS = [
     search_documents,
     analyze_generation_data,
     get_user_feedback_context,
+    analyze_kpi_performance,
+    analyze_esg_metrics,
+    analyze_project_milestones,
 ]
