@@ -1,0 +1,378 @@
+import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  BarChart3,
+  TrendingUp,
+  FileText,
+  Shield,
+  ChevronDown,
+  ChevronUp,
+  MessageCircle,
+  X,
+  Download,
+  RotateCcw,
+  ArrowUp,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Markdown } from '@/components/ui/markdown';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+// ---------------------------------------------------------------------------
+// レポートセクション定義
+// ---------------------------------------------------------------------------
+interface ReportSection {
+  id: string;
+  icon: React.ElementType;
+  title: string;
+  content: string;
+  drillDownPrompt: string;
+}
+
+const REPORT_SECTIONS: ReportSection[] = [
+  {
+    id: 'summary',
+    icon: BarChart3,
+    title: 'エグゼクティブサマリー',
+    content: `## 概況
+
+2025年度上期の環境エネルギー事業は、**売上高 1,847百万円**（前年同期比 +8.2%）、**営業利益 312百万円**（同 +12.5%）と堅調に推移しました。
+
+### 主要KPI
+
+| 指標 | 実績 | 前年同期比 |
+|------|------|-----------|
+| 売上高 | 1,847百万円 | +8.2% |
+| 営業利益 | 312百万円 | +12.5% |
+| 設備容量 | 425MW | +15MW |
+| 設備利用率 | 78.3% | +2.1pt |
+| CO2削減量 | 18,200t | +9.8% |
+
+### ハイライト
+- 太陽光セグメントが通期計画を上回るペースで推移
+- 風力新規案件の受注が好調（SFAパイプライン +23%）
+- バイオマスの設備利用率が改善傾向`,
+    drillDownPrompt: 'エグゼクティブサマリーの詳細を教えてください。特に前年との比較について深掘りしたいです。',
+  },
+  {
+    id: 'financial',
+    icon: TrendingUp,
+    title: 'セグメント別財務分析',
+    content: `## セグメント別業績
+
+### 太陽光発電
+- **売上高**: 823百万円（構成比 44.6%）— 新規メガソーラー稼働寄与
+- **営業利益率**: 19.2%（前期 17.8%）— O&Mコスト最適化が奏功
+
+### 風力発電
+- **売上高**: 512百万円（構成比 27.7%）— 洋上風力プロジェクト準備段階
+- **営業利益率**: 15.1%（前期 14.3%）— 稼働率向上
+
+### バイオマス
+- **売上高**: 298百万円（構成比 16.1%）— 燃料調達価格安定
+- **営業利益率**: 12.8%（前期 11.2%）— 熱効率改善
+
+### 省エネルギー
+- **売上高**: 214百万円（構成比 11.6%）— ESCO案件が堅調
+- **営業利益率**: 22.4%（前期 21.0%）— ストック収入増
+
+### 注目ポイント
+> 太陽光と風力で全体売上の **72.3%** を占め、成長ドライバーとして機能。省エネルギーは利益率最高セグメント。`,
+    drillDownPrompt: 'セグメント別の月次推移を詳しく分析してください。特に利益率の変動要因を知りたいです。',
+  },
+  {
+    id: 'pipeline',
+    icon: FileText,
+    title: 'SFAパイプライン・案件状況',
+    content: `## 営業パイプライン
+
+### ファネル概況
+
+| ステージ | 件数 | 金額（百万円） | 期待金額 |
+|----------|------|---------------|---------|
+| リード | 8件 | 1,240 | 248 |
+| 提案中 | 7件 | 980 | 490 |
+| 交渉中 | 6件 | 1,520 | 1,064 |
+| 最終段階 | 4件 | 860 | 774 |
+| 受注確定 | 5件 | 720 | 720 |
+
+### パイプライン総額: **5,320百万円**（期待金額ベース: **3,296百万円**）
+
+### 注目案件
+1. **洋上風力 A海域プロジェクト** — 交渉中 / 450百万円 / 確度75%
+2. **メガソーラー B地区** — 最終段階 / 280百万円 / 確度90%
+3. **バイオマス C発電所 燃料転換** — 提案中 / 180百万円 / 確度50%
+
+### リスクフラグ
+- 交渉中案件のうち2件が3ヶ月以上停滞 → 要フォロー
+- リード段階の大型案件（500百万円超）に受注確度20%の案件あり`,
+    drillDownPrompt: 'SFAパイプラインの詳細を教えてください。停滞案件の具体的なリスクと対策を分析してください。',
+  },
+  {
+    id: 'risk',
+    icon: Shield,
+    title: 'リスクと機会・提言',
+    content: `## リスクと機会
+
+### ⚠️ リスク
+
+| リスク項目 | 影響度 | 対応状況 |
+|-----------|--------|---------|
+| 系統接続制約の強化 | 高 | 蓄電池併設で対応検討中 |
+| 燃料価格変動（バイオマス） | 中 | 長期契約により一定のヘッジ |
+| 為替リスク（設備輸入） | 中 | 円安基調で注視 |
+| 人材不足（洋上風力技術者） | 高 | 採用・育成計画策定中 |
+
+### 🚀 機会
+
+- **GX推進法による補助金拡充** — 太陽光・洋上風力に追い風
+- **企業PPA需要の急増** — 法人顧客からの引き合い+40%
+- **蓄電池コスト低下** — 新規ビジネスモデルの構築可能性
+- **カーボンクレジット市場** — CO2削減量の収益化ポテンシャル
+
+## 提言
+
+1. **洋上風力案件の早期クローズ** — A海域プロジェクトの交渉加速を推奨
+2. **PPA営業体制の強化** — 法人需要獲得のため専任チーム組成を検討
+3. **蓄電池事業の検討** — 系統制約対応と新規収益源の両面で戦略的に重要
+4. **人材投資** — 洋上風力技術者の確保が中長期成長のボトルネック`,
+    drillDownPrompt: 'リスクと機会についてさらに詳しく分析してください。特にGX推進法の影響と蓄電池事業の可能性について教えてください。',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// レポートページ本体
+// ---------------------------------------------------------------------------
+export function ReportPage() {
+  const navigate = useNavigate();
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(REPORT_SECTIONS.map((s) => s.id)),
+  );
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<
+    { role: 'user' | 'assistant'; text: string }[]
+  >([]);
+  const [chatInput, setChatInput] = useState('');
+
+  const toggleSection = useCallback((id: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const openChatWithPrompt = useCallback((prompt: string) => {
+    setChatOpen(true);
+    setChatMessages([{ role: 'user', text: prompt }]);
+    // TODO: 実際のAIバックエンドに接続
+    setTimeout(() => {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          text: 'ただいま分析中です。バックエンドAPI接続後、AIが詳細な回答を提供します。',
+        },
+      ]);
+    }, 800);
+  }, []);
+
+  const sendChatMessage = useCallback(() => {
+    if (!chatInput.trim()) return;
+    const msg = chatInput.trim();
+    setChatInput('');
+    setChatMessages((prev) => [...prev, { role: 'user', text: msg }]);
+    // TODO: 実際のAIバックエンドに接続
+    setTimeout(() => {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          text: 'ただいま分析中です。バックエンドAPI接続後、AIが詳細な回答を提供します。',
+        },
+      ]);
+    }, 800);
+  }, [chatInput]);
+
+  return (
+    <div className="flex h-svh w-full bg-background">
+      {/* ========== メインレポートエリア ========== */}
+      <div className="flex flex-1 flex-col min-w-0">
+        {/* ヘッダー */}
+        <header className="flex items-center justify-between border-b px-6 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-accent-foreground font-bold text-sm">
+              E
+            </div>
+            <div>
+              <h1 className="text-base font-bold">環境エネルギー本部 経営レポート</h1>
+              <p className="text-xs text-muted-foreground">
+                2025年度上期 ・ 自動生成: {new Date().toLocaleDateString('ja-JP')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/')}
+              className="gap-1.5"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              再分析
+            </Button>
+            <Button variant="ghost" size="sm" className="gap-1.5">
+              <Download className="h-3.5 w-3.5" />
+              PDF出力
+            </Button>
+            <Button
+              size="sm"
+              variant={chatOpen ? 'secondary' : 'primary'}
+              onClick={() => setChatOpen(!chatOpen)}
+              className="gap-1.5"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              AIに質問
+            </Button>
+          </div>
+        </header>
+
+        {/* レポート本文 */}
+        <ScrollArea className="flex-1">
+          <div className="mx-auto max-w-4xl px-6 py-8 space-y-4">
+            {REPORT_SECTIONS.map((section) => {
+              const isExpanded = expandedSections.has(section.id);
+              return (
+                <div
+                  key={section.id}
+                  className="rounded-xl border bg-card overflow-hidden"
+                >
+                  {/* セクションヘッダー */}
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="flex w-full items-center gap-3 px-5 py-4 text-left hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent">
+                      <section.icon className="h-4 w-4" />
+                    </div>
+                    <span className="flex-1 text-sm font-bold">{section.title}</span>
+                    {isExpanded ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+
+                  {/* セクション本文 */}
+                  {isExpanded && (
+                    <div className="border-t px-5 py-4">
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <Markdown content={section.content} />
+                      </div>
+                      <div className="mt-4 pt-3 border-t">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openChatWithPrompt(section.drillDownPrompt)}
+                          className="gap-1.5 text-accent hover:text-accent"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          このセクションを深掘り
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* ========== チャットサイドパネル ========== */}
+      {chatOpen && (
+        <div className="flex w-[380px] shrink-0 flex-col border-l bg-card">
+          {/* パネルヘッダー */}
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-accent" />
+              <span className="text-sm font-bold">AIアシスタント</span>
+            </div>
+            <button
+              onClick={() => setChatOpen(false)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* メッセージエリア */}
+          <ScrollArea className="flex-1 p-4">
+            {chatMessages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                <MessageCircle className="h-8 w-8 text-muted-foreground/40 mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  レポートの内容について
+                  <br />
+                  AIに質問できます
+                </p>
+                <div className="mt-4 space-y-2 w-full">
+                  {REPORT_SECTIONS.slice(0, 3).map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => openChatWithPrompt(s.drillDownPrompt)}
+                      className="w-full rounded-lg border bg-background p-2.5 text-left text-xs hover:border-accent/50 transition-colors"
+                    >
+                      {s.drillDownPrompt.slice(0, 40)}...
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {chatMessages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                        msg.role === 'user'
+                          ? 'bg-accent text-accent-foreground'
+                          : 'bg-muted'
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+
+          {/* 入力エリア */}
+          <div className="border-t p-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendChatMessage();
+                  }
+                }}
+                placeholder="質問を入力..."
+                className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+              <Button size="sm" onClick={sendChatMessage} disabled={!chatInput.trim()}>
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

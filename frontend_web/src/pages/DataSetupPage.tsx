@@ -91,7 +91,7 @@ export function DataSetupPage() {
   const canProceed = uploadedFiles.length > 0 || demoLoaded;
 
   const handleProceed = useCallback(() => {
-    navigate('/chat');
+    navigate('/analyzing');
   }, [navigate]);
 
   const formatSize = (bytes: number) => {
@@ -145,7 +145,7 @@ export function DataSetupPage() {
               accept=".csv,.xlsx,.xls,.json,.tsv"
               onChange={handleFileInput}
             />
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="secondary" size="sm" asChild>
               <span>ファイルを選択</span>
             </Button>
           </label>
