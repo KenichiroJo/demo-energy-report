@@ -64,7 +64,7 @@ class MyAgent(LangGraphAgent):
             self.model = self.default_model
 
     # -----------------------------------------------------------------
-    # LangGraph workflow: router → analyst → reporter → formatter
+    # LangGraph workflow: single powerful agent node
     # -----------------------------------------------------------------
 
     @property
@@ -72,13 +72,9 @@ class MyAgent(LangGraphAgent):
         langgraph_workflow = StateGraph[
             MessagesState, None, MessagesState, MessagesState
         ](MessagesState)
-        langgraph_workflow.add_node("router_node", self.agent_router)
-        langgraph_workflow.add_node("analyst_node", self.agent_analyst)
-        langgraph_workflow.add_node("reporter_node", self.agent_reporter)
-        langgraph_workflow.add_edge(START, "router_node")
-        langgraph_workflow.add_edge("router_node", "analyst_node")
-        langgraph_workflow.add_edge("analyst_node", "reporter_node")
-        langgraph_workflow.add_edge("reporter_node", END)
+        langgraph_workflow.add_node("agent_node", self.agent_node)
+        langgraph_workflow.add_edge(START, "agent_node")
+        langgraph_workflow.add_edge("agent_node", END)
         return langgraph_workflow  # type: ignore[return-value]
 
     @property
@@ -133,92 +129,47 @@ class MyAgent(LangGraphAgent):
         return ChatLiteLLM(**config)
 
     # -----------------------------------------------------------------
-    # Node 1: Router — ユーザー意図を判定しデータ取得方針を決定
+    # Single agent node: データ取得→分析→レポート作成を一貫して行う
     # -----------------------------------------------------------------
 
     @property
-    def agent_router(self) -> Any:
+    def agent_node(self) -> Any:
         return create_agent(
             self.llm(),
             tools=ALL_TOOLS + self.mcp_tools + self._workflow_tools,
             system_prompt=make_system_prompt(
-                "あなたは環境エネルギー本部のルーターエージェントです。\n"
-                "ユーザーの質問を分析し、必要なデータソースを特定して取得します。\n\n"
-                "## 対応データソース\n"
-                "1. **財務データ** (analyze_financial_data): 売上・利益・EBITDA・予算達成率の月次データ（FY2023-FY2024）\n"
-                "2. **SFAパイプライン** (analyze_sfa_pipeline): 営業案件・受注見込み・失注分析・競合分析\n"
-                "3. **社内文書** (search_documents): 事業計画・月次報告・議事録・分析レポート・ESG報告・技術評価・規程\n"
-                "4. **発電実績** (analyze_generation_data): 設備容量・稼働率・トレンド\n"
-                "5. **フィードバック** (get_user_feedback_context): 過去のユーザー評価\n"
-                "6. **KPI目標** (analyze_kpi_performance): 中期経営計画のKPI目標達成状況（財務・事業・ESG・人材）\n"
-                "7. **ESG指標** (analyze_esg_metrics): CO2削減・再エネ供給・カーボンクレジット・Scope排出量の月次推移\n"
-                "8. **プロジェクト進捗** (analyze_project_milestones): 洋上風力・蓄電所・海外案件等の大型プロジェクトのマイルストーン\n\n"
-                "## 指示\n"
-                "- 質問に応じて適切なツールを1つ以上呼び出してください\n"
-                "- 複合的な質問(例:「今期の業績とパイプライン状況」)は複数ツールを使ってください\n"
-                "- KPI分析や予算対比を求められたら analyze_kpi_performance と analyze_financial_data を併用\n"
-                "- ESG・サステナビリティ関連は analyze_esg_metrics と search_documents を併用\n"
-                "- 大型案件の進捗は analyze_project_milestones で確認\n"
-                "- フィードバックツールを活用し、過去の改善要望を反映してください\n"
-                "- 取得したデータをそのまま次のノードに渡してください\n"
-            ),
-            name="router_agent",
-        )
-
-    # -----------------------------------------------------------------
-    # Node 2: Analyst — データを構造的に分析し洞察を導出
-    # -----------------------------------------------------------------
-
-    @property
-    def agent_analyst(self) -> Any:
-        return create_agent(
-            self.llm(),
-            tools=ALL_TOOLS + self.mcp_tools + self._workflow_tools,
-            system_prompt=make_system_prompt(
-                "あなたは環境エネルギー本部のデータアナリストです。\n"
-                "ルーターが収集したデータを分析し、経営判断に有用な洞察を導出します。\n\n"
-                "## 分析の観点\n"
-                "- **前期比・前年比**: 数値の変化率を計算し、トレンドを特定\n"
-                "- **予算対比**: 売上・利益の予算達成率を評価\n"
-                "- **セグメント比較**: 事業セグメント間のパフォーマンス差異を分析\n"
-                "- **KPI進捗**: 中期経営計画のKPI目標に対する達成度を評価\n"
-                "- **リスク要因**: 業績悪化リスク、失注理由の傾向、プロジェクト遅延を特定\n"
-                "- **機会の特定**: 成長が見込まれる領域・案件をハイライト\n"
-                "- **CO2削減効果**: 環境インパクトとESG指標を定量的に評価\n"
-                "- **競合動向**: SFAデータの競合分析から市場ポジションを把握\n"
-                "- **プロジェクト進捗**: 大型案件のマイルストーン達成度とリスクを評価\n\n"
-                "## 出力形式\n"
-                "- 定量的な事実を先に記述し、その後に解釈・洞察を付加\n"
-                "- 必要に応じてツールで追加データを取得してください\n"
-                "- 分析結果は箇条書きで構造化してください\n"
-            ),
-            name="analyst_agent",
-        )
-
-    # -----------------------------------------------------------------
-    # Node 3: Reporter — 分析結果を経営レポートとして整形
-    # -----------------------------------------------------------------
-
-    @property
-    def agent_reporter(self) -> Any:
-        return create_agent(
-            self.llm(),
-            tools=self.mcp_tools + self._workflow_tools,
-            system_prompt=make_system_prompt(
-                "あなたは環境エネルギー本部のレポートライターです。\n"
-                "アナリストの分析結果を基に、経営企画・経営層向けの構造化レポートを作成します。\n\n"
+                "あなたは環境エネルギー本部の経営レポーティングAIです。\n"
+                "ユーザーの質問に対し、複数のデータソースを統合的に分析し、\n"
+                "経営企画・経営層向けの構造化レポートを提供します。\n\n"
+                "## 利用可能なデータソース（ツール）\n"
+                "1. **analyze_financial_data**: 売上・利益・EBITDA・予算達成率の月次データ（FY2023-FY2024、10セグメント）\n"
+                "2. **analyze_sfa_pipeline**: 営業案件60件（アクティブ・受注・失注）、競合分析、失注理由分析\n"
+                "3. **search_documents**: 社内文書50件（事業計画・月次報告・議事録・分析レポート・ESG報告・技術評価・規程）\n"
+                "4. **analyze_generation_data**: 発電実績（設備容量・発電量・稼働率トレンド）\n"
+                "5. **get_user_feedback_context**: 過去のユーザーフィードバック\n"
+                "6. **analyze_kpi_performance**: 中期経営計画KPI（財務・事業・ESG・人材、FY2023実績〜FY2028目標）\n"
+                "7. **analyze_esg_metrics**: ESG月次指標（CO2削減・再エネ供給・カーボンクレジット・Scope排出量）\n"
+                "8. **analyze_project_milestones**: 大型プロジェクト8件のマイルストーン進捗\n\n"
+                "## 作業手順\n"
+                "1. **データ取得**: 質問に応じて適切なツールを1つ以上呼び出す\n"
+                "   - 複合的な質問は複数ツールを併用\n"
+                "   - KPI分析は analyze_kpi_performance + analyze_financial_data\n"
+                "   - ESG関連は analyze_esg_metrics + search_documents\n"
+                "2. **分析**: 取得データから洞察を導出\n"
+                "   - 前期比・前年比のトレンド、予算達成率\n"
+                "   - セグメント間比較、リスク・機会の特定\n"
+                "   - 競合動向、プロジェクト遅延リスク\n"
+                "3. **レポート作成**: Markdown形式で構造化レポートを出力\n\n"
                 "## レポート構成\n"
-                "1. **エグゼクティブサマリー** (3-5文): 重要なポイントの概要\n"
-                "2. **主要指標** (表形式): KPI数値の一覧\n"
-                "3. **分析詳細**: セグメント別の状況説明\n"
-                "4. **リスクと機会**: 注意点と成長余地\n"
-                "5. **アクション提案**: 次のステップの推奨事項\n\n"
+                "1. **エグゼクティブサマリー** (3-5文)\n"
+                "2. **主要指標** (表形式)\n"
+                "3. **分析詳細**: セグメント別・テーマ別の状況\n"
+                "4. **リスクと機会**\n"
+                "5. **アクション提案**\n\n"
                 "## 注意事項\n"
-                "- Markdown形式で出力してください\n"
-                "- 数値には適切な単位を付けてください(百万円、MW、MWh、%等)\n"
-                "- 全体で1000文字以内に収めてください\n"
-                "- 日本語で回答してください\n"
-                "- 不明な点がある場合はその旨を明記してください\n"
+                "- 数値には適切な単位を付ける(百万円、億円、MW、MWh、%等)\n"
+                "- 日本語で回答\n"
+                "- 不明な点がある場合はその旨を明記\n"
             ),
-            name="reporter_agent",
+            name="energy_report_agent",
         )
