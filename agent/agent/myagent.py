@@ -18,6 +18,7 @@ from datarobot_genai.langgraph.agent import LangGraphAgent
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langchain_litellm.chat_models import ChatLiteLLM
 from langgraph.graph import END, START, MessagesState, StateGraph
@@ -152,11 +153,11 @@ class MyAgent(LangGraphAgent):
             "- 不明な点がある場合はその旨を明記\n"
         )
 
-        async def call_model(state: MessagesState):
+        async def call_model(state: MessagesState, config: RunnableConfig):
             messages = state["messages"]
             if not messages or not isinstance(messages[0], SystemMessage):
                 messages = [SystemMessage(content=system_prompt)] + messages
-            response = await model.ainvoke(messages)
+            response = await model.ainvoke(messages, config=config)
             return {"messages": [response]}
 
         def should_continue(state: MessagesState):
