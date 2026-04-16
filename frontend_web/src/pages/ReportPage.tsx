@@ -225,7 +225,7 @@ export function ReportPage() {
 
           try {
             const event = JSON.parse(jsonStr);
-            if (event.type === 'text_message_content' && event.delta) {
+            if (event.type === 'TEXT_MESSAGE_CONTENT' && event.delta) {
               updateAssistantText(assistantText + event.delta);
             }
           } catch {
@@ -245,7 +245,7 @@ export function ReportPage() {
             if (!jsonStr) continue;
             try {
               const event = JSON.parse(jsonStr);
-              if (event.type === 'text_message_content' && event.delta) {
+              if (event.type === 'TEXT_MESSAGE_CONTENT' && event.delta) {
                 updateAssistantText(assistantText + event.delta);
               }
             } catch {
