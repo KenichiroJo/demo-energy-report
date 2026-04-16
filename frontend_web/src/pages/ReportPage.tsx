@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart3,
@@ -13,6 +13,9 @@ import {
   RotateCcw,
   ArrowUp,
   Loader2,
+  Sparkles,
+  Bot,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Markdown } from '@/components/ui/markdown';
@@ -324,18 +327,24 @@ export function ReportPage() {
     sendToAgent(msg);
   }, [chatInput, isStreaming, sendToAgent]);
 
+  // チャットメッセージ末尾への自動スクロール
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
   return (
-    <div className="flex h-svh w-full bg-background">
+    <div className="flex h-svh w-full overflow-hidden bg-background">
       {/* ========== メインレポートエリア ========== */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0 h-full">
         {/* ヘッダー */}
-        <header className="flex items-center justify-between border-b px-6 py-3">
+        <header className="flex items-center justify-between border-b bg-card/80 backdrop-blur-sm px-6 py-3 shrink-0 z-10">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-accent-foreground font-bold text-sm">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm shadow-sm">
               E
             </div>
             <div>
-              <h1 className="text-base font-bold">環境エネルギー本部 経営レポート</h1>
+              <h1 className="text-base font-bold tracking-tight">環境エネルギー本部 経営レポート</h1>
               <p className="text-xs text-muted-foreground">
                 2025年度上期 ・ 自動生成: {new Date().toLocaleDateString('ja-JP')}
               </p>
@@ -357,7 +366,7 @@ export function ReportPage() {
             </Button>
             <Button
               size="sm"
-              variant={chatOpen ? 'secondary' : 'primary'}
+              variant={chatOpen ? 'secondary' : 'default'}
               onClick={() => setChatOpen(!chatOpen)}
               className="gap-1.5"
             >
@@ -368,21 +377,21 @@ export function ReportPage() {
         </header>
 
         {/* レポート本文 */}
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="mx-auto max-w-4xl px-6 py-8 space-y-4">
             {REPORT_SECTIONS.map((section) => {
               const isExpanded = expandedSections.has(section.id);
               return (
                 <div
                   key={section.id}
-                  className="rounded-xl border bg-card overflow-hidden"
+                  className="rounded-xl border bg-card shadow-sm overflow-hidden transition-shadow hover:shadow-md"
                 >
                   {/* セクションヘッダー */}
                   <button
                     onClick={() => toggleSection(section.id)}
-                    className="flex w-full items-center gap-3 px-5 py-4 text-left hover:bg-muted/50 transition-colors"
+                    className="flex w-full items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors"
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/5 text-primary">
                       <section.icon className="h-4 w-4" />
                     </div>
                     <span className="flex-1 text-sm font-bold">{section.title}</span>
@@ -404,9 +413,9 @@ export function ReportPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => openChatWithPrompt(section.drillDownPrompt)}
-                          className="gap-1.5 text-accent hover:text-accent"
+                          className="gap-1.5 text-primary/70 hover:text-primary"
                         >
-                          <MessageCircle className="h-3.5 w-3.5" />
+                          <Sparkles className="h-3.5 w-3.5" />
                           このセクションを深掘り
                         </Button>
                       </div>
@@ -419,93 +428,127 @@ export function ReportPage() {
         </ScrollArea>
       </div>
 
-      {/* ========== チャットサイドパネル ========== */}
+      {/* ========== チャットサイドパネル（固定） ========== */}
       {chatOpen && (
-        <div className="flex w-[380px] shrink-0 flex-col border-l bg-card">
+        <div className="flex w-[480px] shrink-0 flex-col h-full border-l bg-card shadow-[-4px_0_24px_rgba(0,0,0,0.04)]">
           {/* パネルヘッダー */}
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <div className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4 text-accent" />
-              <span className="text-sm font-bold">AIアシスタント</span>
+          <div className="flex items-center justify-between border-b px-5 py-3.5 shrink-0 bg-card">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <Bot className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <span className="text-sm font-bold">AIアシスタント</span>
+                {isStreaming && (
+                  <span className="ml-2 text-[10px] text-muted-foreground animate-pulse">分析中...</span>
+                )}
+              </div>
             </div>
             <button
               onClick={() => setChatOpen(false)}
-              className="text-muted-foreground hover:text-foreground"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
           {/* メッセージエリア */}
-          <ScrollArea className="flex-1 p-4">
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
             {chatMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                <MessageCircle className="h-8 w-8 text-muted-foreground/40 mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  レポートの内容について
-                  <br />
-                  AIに質問できます
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/5 mb-4">
+                  <Sparkles className="h-7 w-7 text-primary/40" />
+                </div>
+                <p className="text-sm font-medium text-foreground/80 mb-1">
+                  レポートの内容について質問できます
                 </p>
-                <div className="mt-4 space-y-2 w-full">
+                <p className="text-xs text-muted-foreground mb-6">
+                  セクションの「深掘り」ボタンからも開始できます
+                </p>
+                <div className="space-y-2 w-full max-w-xs">
                   {REPORT_SECTIONS.slice(0, 3).map((s) => (
                     <button
                       key={s.id}
                       onClick={() => openChatWithPrompt(s.drillDownPrompt)}
-                      className="w-full rounded-lg border bg-background p-2.5 text-left text-xs hover:border-accent/50 transition-colors"
+                      className="w-full rounded-lg border bg-background p-3 text-left text-xs leading-relaxed hover:bg-muted/30 hover:border-primary/20 transition-all"
                     >
-                      {s.drillDownPrompt.slice(0, 40)}...
+                      <span className="text-muted-foreground">{s.drillDownPrompt.slice(0, 50)}...</span>
                     </button>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {chatMessages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                        msg.role === 'user'
-                          ? 'bg-accent text-accent-foreground'
-                          : 'bg-muted'
-                      }`}
-                    >
-                      {msg.role === 'assistant' && msg.text ? (
-                        <Markdown content={msg.text} />
-                      ) : msg.role === 'assistant' && !msg.text ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : (
-                        msg.text
-                      )}
+                  <div key={i} className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                    {/* アバター */}
+                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full mt-0.5 ${
+                      msg.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-primary/10 text-primary'
+                    }`}>
+                      {msg.role === 'user'
+                        ? <User className="h-3.5 w-3.5" />
+                        : <Bot className="h-3.5 w-3.5" />
+                      }
+                    </div>
+                    {/* メッセージバブル */}
+                    <div className={`min-w-0 max-w-[calc(100%-3rem)] ${msg.role === 'user' ? 'text-right' : ''}`}>
+                      <div
+                        className={`inline-block rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                          msg.role === 'user'
+                            ? 'bg-primary text-primary-foreground rounded-tr-md'
+                            : 'bg-muted/60 text-foreground rounded-tl-md'
+                        }`}
+                      >
+                        {msg.role === 'assistant' && msg.text ? (
+                          <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                            <Markdown content={msg.text} />
+                          </div>
+                        ) : msg.role === 'assistant' && !msg.text ? (
+                          <div className="flex items-center gap-2 py-1">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">考え中...</span>
+                          </div>
+                        ) : (
+                          msg.text
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
+                <div ref={chatEndRef} />
               </div>
             )}
-          </ScrollArea>
+          </div>
 
           {/* 入力エリア */}
-          <div className="border-t p-3">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendChatMessage();
-                  }
-                }}
-                placeholder="質問を入力..."
-                disabled={isStreaming}
-                className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-50"
-              />
-              <Button size="sm" onClick={sendChatMessage} disabled={!chatInput.trim() || isStreaming}>
-                {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
-              </Button>
+          <div className="border-t p-4 shrink-0 bg-card">
+            <div className="flex items-end gap-2">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendChatMessage();
+                    }
+                  }}
+                  placeholder="質問を入力..."
+                  disabled={isStreaming}
+                  className="w-full rounded-xl border bg-background px-4 py-2.5 pr-12 text-sm outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 disabled:opacity-50 transition-all"
+                />
+                <Button
+                  size="sm"
+                  onClick={sendChatMessage}
+                  disabled={!chatInput.trim() || isStreaming}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg p-0"
+                >
+                  {isStreaming ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowUp className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
