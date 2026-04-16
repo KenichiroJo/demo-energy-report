@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import asyncio
-import queue
+import logging
 from collections.abc import AsyncGenerator
 from functools import partial
 from typing import Callable, Dict, Generic, ParamSpec, final
@@ -28,6 +28,8 @@ from app.ag_ui.storage import AGUIAgentWithStorage
 from app.chats import ChatRepository
 from app.config import Config
 from app.messages import MessageRepository
+
+logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 
@@ -50,21 +52,21 @@ class AGUIStreamManager(Generic[P]):
     async def run(
         self, input: RunAgentInput, *args: P.args, **kwargs: P.kwargs
     ) -> AsyncGenerator[BaseEvent, None]:
-        q: queue.Queue[BaseEvent | NoMoreEvents] = queue.Queue()
+        q: asyncio.Queue[BaseEvent | NoMoreEvents] = asyncio.Queue()
 
         async def populate_queue() -> None:
-            agent = self._agent_factory(*args, **kwargs)
-            async for event in agent.run(input):
-                q.put(event)
-            q.put(NoMoreEvents())
+            try:
+                agent = self._agent_factory(*args, **kwargs)
+                async for event in agent.run(input):
+                    await q.put(event)
+            except Exception:
+                logger.exception("Error while populating event queue")
+            finally:
+                await q.put(NoMoreEvents())
 
         async def iterate_queue() -> AsyncGenerator[BaseEvent, None]:
             while True:
-                try:
-                    e = q.get_nowait()
-                except queue.Empty:
-                    await asyncio.sleep(0.05)
-                    continue
+                e = await q.get()
                 if isinstance(e, NoMoreEvents):
                     break
                 else:

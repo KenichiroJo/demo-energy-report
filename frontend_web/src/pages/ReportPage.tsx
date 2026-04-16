@@ -225,8 +225,8 @@ export function ReportPage() {
 
           try {
             const event = JSON.parse(jsonStr);
-            if (event.type === 'text_message_content' && event.text) {
-              updateAssistantText(assistantText + event.text);
+            if (event.type === 'text_message_content' && event.delta) {
+              updateAssistantText(assistantText + event.delta);
             }
           } catch {
             // JSON parse error - skip partial lines
@@ -245,8 +245,8 @@ export function ReportPage() {
             if (!jsonStr) continue;
             try {
               const event = JSON.parse(jsonStr);
-              if (event.type === 'text_message_content' && event.text) {
-                updateAssistantText(assistantText + event.text);
+              if (event.type === 'text_message_content' && event.delta) {
+                updateAssistantText(assistantText + event.delta);
               }
             } catch {
               // skip
