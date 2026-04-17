@@ -150,7 +150,7 @@ const REPORT_SECTIONS: ReportSection[] = [
 export function ReportPage() {
   const navigate = useNavigate();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(REPORT_SECTIONS.map((s) => s.id)),
+    new Set(['ai-report', ...REPORT_SECTIONS.map((s) => s.id)]),
   );
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<
@@ -160,6 +160,16 @@ export function ReportPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const threadIdRef = useRef<string>(`report-${crypto.randomUUID()}`);
   const chatHistoryRef = useRef<{ id: string; role: string; content: string; name: string }[]>([]);
+
+  // エージェント生成コンテンツをsessionStorageから読み込み
+  const [agentReport, setAgentReport] = useState<string | null>(null);
+  const [reportTimestamp, setReportTimestamp] = useState<string | null>(null);
+  useEffect(() => {
+    const content = sessionStorage.getItem('agent-report-content');
+    const ts = sessionStorage.getItem('agent-report-timestamp');
+    if (content) setAgentReport(content);
+    if (ts) setReportTimestamp(ts);
+  }, []);
 
   const toggleSection = useCallback((id: string) => {
     setExpandedSections((prev) => {
@@ -346,7 +356,7 @@ export function ReportPage() {
             <div>
               <h1 className="text-base font-bold tracking-tight">環境エネルギー本部 経営レポート</h1>
               <p className="text-xs text-muted-foreground">
-                2025年度上期 ・ 自動生成: {new Date().toLocaleDateString('ja-JP')}
+                2025年度上期 ・ AI生成: {reportTimestamp ? new Date(reportTimestamp).toLocaleString('ja-JP') : new Date().toLocaleDateString('ja-JP')}
               </p>
             </div>
           </div>
@@ -379,6 +389,63 @@ export function ReportPage() {
         {/* レポート本文 */}
         <ScrollArea className="flex-1 min-h-0">
           <div className="mx-auto max-w-4xl px-6 py-8 space-y-4">
+            {/* ===== AI生成レポート（メインセクション） ===== */}
+            {agentReport && (
+              <div className="rounded-xl border-2 border-primary/20 bg-card shadow-sm overflow-hidden transition-shadow hover:shadow-md">
+                <button
+                  onClick={() => toggleSection('ai-report')}
+                  className="flex w-full items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-bold">AI 統合分析レポート</span>
+                    {reportTimestamp && (
+                      <span className="ml-2 text-[10px] text-muted-foreground">
+                        生成: {new Date(reportTimestamp).toLocaleString('ja-JP')}
+                      </span>
+                    )}
+                  </div>
+                  <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                    Agent Generated
+                  </span>
+                  {expandedSections.has('ai-report') ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+                {expandedSections.has('ai-report') && (
+                  <div className="border-t px-5 py-5">
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <Markdown content={agentReport} />
+                    </div>
+                    <div className="mt-4 pt-3 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openChatWithPrompt('このレポートの内容をさらに深掘りしてください。特に前年対比の変動要因と、来期に向けたアクション提案を詳しく教えてください。')}
+                        className="gap-1.5 text-primary/70 hover:text-primary"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        このレポートについて質問する
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ===== 定型レポートセクション（参考データ） ===== */}
+            {agentReport && (
+              <div className="flex items-center gap-3 pt-4 pb-1 px-1">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[11px] text-muted-foreground shrink-0">参考: セグメント別定型レポート</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            )}
+
             {REPORT_SECTIONS.map((section) => {
               const isExpanded = expandedSections.has(section.id);
               return (
