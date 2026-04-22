@@ -350,13 +350,13 @@ export function ReportPage() {
         {/* ヘッダー */}
         <header className="flex items-center justify-between border-b bg-card/80 backdrop-blur-sm px-6 py-3 shrink-0 z-10">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm shadow-sm">
-              E
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-xs shadow-sm">
+              AI
             </div>
             <div>
-              <h1 className="text-base font-bold tracking-tight">環境エネルギー本部 経営レポート</h1>
+              <h1 className="text-base font-bold tracking-tight">多角的分析レポート</h1>
               <p className="text-xs text-muted-foreground">
-                2025年度上期 ・ AI生成: {reportTimestamp ? new Date(reportTimestamp).toLocaleString('ja-JP') : new Date().toLocaleDateString('ja-JP')}
+                Insight Navigator ・ AI生成: {reportTimestamp ? new Date(reportTimestamp).toLocaleString('ja-JP') : new Date().toLocaleDateString('ja-JP')}
               </p>
             </div>
           </div>

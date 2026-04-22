@@ -33,8 +33,8 @@ const INITIAL_STEPS: AnalysisStep[] = [
   { id: 'synthesis', icon: Brain,        label: '統合レポートを生成中',      detail: 'データを横断分析し、経営示唆を導出',         status: 'waiting' },
 ];
 
-const AGENT_PROMPT = `環境エネルギー本部の2025年度 経営レポートを作成してください。
-以下の観点で統合的に分析してください:
+const AGENT_PROMPT = `環境エネルギー事業の2025年度 多角的分析レポートを作成してください。
+以下の観点で財務・営業・ESG・社内文書を横断的に分析してください:
 
 1. **エグゼクティブサマリー**: 全体の概況を3-5文で。主要KPIを表形式で。ハイライト3-4点。
 2. **セグメント別財務分析**: 主要セグメント（太陽光・風力・バイオマス・省エネ・電力小売等）の売上・利益率と前年対比。
@@ -230,7 +230,7 @@ export function AnalyzingPage() {
 
         <div className="space-y-2">
           <h1 className="text-xl font-bold tracking-tight">
-            {completedCount === steps.length ? '経営レポート生成完了' : '経営レポートを生成中'}
+            {completedCount === steps.length ? '多角的分析レポート生成完了' : '多角的分析レポートを生成中'}
           </h1>
           <p className="text-sm text-muted-foreground">
             {statusText}
